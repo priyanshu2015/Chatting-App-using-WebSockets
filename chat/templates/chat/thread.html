@@ -1,0 +1,74 @@
+  
+{% extends "base.html" %}
+
+{% block content %}
+<h3>Thread for {% if user != object.first %}{{ object.first }}{% else %}{{ object.second }}{% endif %}</h3>
+<ul id='chat-items'>
+{% for chat in object.chatmessage_set.all %}
+
+<li>{{ chat.message }} via {{ chat.user }}</li>
+
+{% endfor %}
+</ul>
+
+<form id='form' method='POST'> {% csrf_token %}
+<input type='hidden' id='myUsername' value = '{{user.username}}' />
+{{form.as_p }}
+<input type='submit' class='btn btn-primary'/>
+</form>
+
+{% endblock %}
+
+{% block script %}
+
+<script src='https://cdnjs.cloudflare.com/ajax/libs/reconnecting-websocket/1.0.0/reconnecting-websocket.js'></script>
+<script>
+// websocket scripts
+console.log(window.location)
+var loc = window.location
+var formData = $("#form")
+var msgInput = $("#id_message")
+var chatHolder = $("#chat-items")
+var me = $("#myUsername").val()
+
+var wsStart = 'ws://'
+if (loc.protocol == 'https:'){
+    wsStart = 'wss://'
+}
+var endpoint = wsStart + loc.host + loc.pathname
+//var socket = new WebSocket(endpoint)
+var socket = new ReconnectingWebSocket(endpoint)
+socket.onmessage = function(e){     // after socket recieves any message from any user
+    console.log("message", e)
+    var chatDataMsg = JSON.parse(e.data)
+    // real message sent by us after reaching to backend and then coming back to us
+    chatHolder.append("<li>"+ chatDataMsg.message + " via " + chatDataMsg.username + "</li>")
+}
+socket.onopen = function(e){       // when user writes message 
+    console.log("open", e)
+    formData.submit(function(event){
+        event.preventDefault()
+        var msgText = msgInput.val()
+        // var formDataSerialized = formData.serialize()
+        // echo message 
+        // chatHolder.append("<li>"+ msgText + " via " + me + "</li>")
+        var finalData = {
+            'message' : msgText
+        }
+        //socket.send(msgText)
+        socket.send(JSON.stringify(finalData))
+        //msgInput.val('')
+        formData[0].reset()
+    })
+}
+socket.onerror = function(e){
+    console.log("error", e)
+}
+socket.onclose = function(e){
+    console.log("close", e)
+}
+
+
+
+</script>
+{% endblock %}
